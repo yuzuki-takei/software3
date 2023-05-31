@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/user/sof/software3/sof_cv/src/sof.cpp
+opencv2/opencv.hpp
+-
+iostream
+-
+string
+-
+numeric
+-
+
