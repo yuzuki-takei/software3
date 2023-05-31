@@ -90,33 +90,21 @@ void feature_matching(const cv::Mat &src1, const cv::Mat &src2, cv::Mat &dst)
   cv::warpPerspective(src1, dst, H, src2.size());
 }
 
-
-int main(int argc, char **argv)
+void absdiff(const cv::Mat &src, const cv::Mat &dst)
 {
-  // 元の画像と間違いが含まれた画像の読み込み
-  cv::Mat image1 = cv::imread(argv[1]);
-  cv::Mat image2 = cv::imread(argv[2]);
-
   // 読み込みの確認
-  if (image1.empty() || image2.empty())
+  if (src.empty() || dst.empty())
   {
     std::cout << "読み込みに失敗しました" << std::endl;
-    return -1;
+    return;
   }
 
-  /**サイズの確認
-  if (image1.size() != image2.size())
-  {
-    std::cout << "画像サイズが異なります" << std::endl;
-    return -1;
-  }*/
-  
-  //特徴点マッチング
-  feature_matching(image1, image2, image1);
+  // 画像のリサイズ
+  cv::resize(dst, dst, src.size());
 
   // 画像の差分を計算
   cv::Mat diffImage;
-  cv::absdiff(image1, image2, diffImage);
+  cv::absdiff(src, dst, diffImage);
 
   // 差分画像をグレースケールに変換
   cv::cvtColor(diffImage, diffImage, cv::COLOR_BGR2GRAY);
@@ -125,7 +113,7 @@ int main(int argc, char **argv)
   cv::threshold(diffImage, diffImage, 30, 255, cv::THRESH_BINARY);
 
   // 差分のある画素に赤色を付ける
-  cv::Mat resultImage = image1.clone();
+  cv::Mat resultImage = src.clone();
   resultImage.setTo(cv::Scalar(0, 0, 255), diffImage);
 
   cv::Scalar lowerRed = cv::Scalar(0, 0, 255);
@@ -135,23 +123,36 @@ int main(int argc, char **argv)
   cv::Mat redMask;
   cv::inRange(resultImage, lowerRed, upperRed, redMask);
 
-  // 抽出した赤色部分を表示
   cv::Mat redImage;
   resultImage.copyTo(redImage, redMask);
 
-  /*** resultImageに3×3のメディアンフィルタを適用し出力 ***/
-  medianBlur(redImage, redImage, 3);
-  medianBlur(redImage, redImage, 3);
-  medianBlur(resultImage, resultImage, 3);
-  medianBlur(resultImage, resultImage, 3);
+  // 画像の暗くする度合いを設定
+  double alpha = 0.4; // 0.0から1.0の範囲で設定（1.0で元の明るさ、0.0で完全に暗くなる）
 
-  // 結果を表示
-  cv::imshow("Red Extraction", redImage);
+  // 画像を暗くする
+  cv::Mat darkenedImage = src * alpha;
+
+  // redMaskと暗くした画像を重ねる
+  cv::Mat overlaidImage;
+  cv::addWeighted(redImage, 1.0, darkenedImage, 1.0, 0.0, overlaidImage);
   
-  /*** 読み込んだ画像を別名で保存 ***/
-  cv::imwrite("result_image.png", resultImage);
-  cv::imwrite("red_image.png", redImage);
-  
+  cv::imshow("Resuit", overlaidImage);
   cv::waitKey(0);
+}
+
+int main(int argc, char **argv)
+{
+  // 元の画像と間違いが含まれた画像の読み込み
+  cv::Mat image1 = cv::imread(argv[1]);
+  cv::Mat image2 = cv::imread(argv[2]);
+
+  
+  //特徴点マッチング
+  feature_matching(image1, image2, image1);
+
+  absdiff(image1, image2);
+
+  
+
   return 0;
 }
