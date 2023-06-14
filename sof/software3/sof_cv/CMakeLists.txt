@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(diff VERSION 1.1.0 LANGUAGES CXX)
+project(sof VERSION 1.1.0 LANGUAGES CXX)
 # ビルドフラグの設定
 set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS}")
 # インクルードパスの追加
@@ -12,6 +12,7 @@ else()
 endif()
 # ビルドに関する設定
 set(EXECUTABLE "sof")
-set(DEPENDENT_LIBS opencv_core;opencv_highgui;opencv_imgcodecs;opencv_imgproc)
-add_executable(${EXECUTABLE} src/${EXECUTABLE}.cpp)
-target_link_libraries(${EXECUTABLE} ${DEPENDENT_LIBS})
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+add_executable(${EXECUTABLE} src/sof.cpp)
+target_link_libraries(${EXECUTABLE} ${OpenCV_LIBS})
