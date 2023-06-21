@@ -1,3 +1,0 @@
-/home/user/sof/software3/sof_cv/build/CMakeFiles/rebuild_cache.dir
-/home/user/sof/software3/sof_cv/build/CMakeFiles/edit_cache.dir
-/home/user/sof/software3/sof_cv/build/CMakeFiles/sof.dir
