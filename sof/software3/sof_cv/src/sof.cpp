@@ -77,9 +77,7 @@ void feature_matching(const cv::Mat &src1, const cv::Mat &src2, cv::Mat &dst)
     std::cerr << "画像が違いすぎます" << std::endl;
     std::exit(1);
   }
-
   // cv::drawMatches(src1, key1, src2, key2, match, dst);
-
   /* src1をsrc2に合わせる形で射影変換して補正 */
   std::vector<cv::Vec2f> get_pt1(match.size()), get_pt2(match.size()); // 使用する特徴点
   /* 対応する特徴点の座標を取得・格納*/
@@ -96,6 +94,7 @@ void feature_matching(const cv::Mat &src1, const cv::Mat &src2, cv::Mat &dst)
   cv::warpPerspective(src1, dst, H, src2.size());
 }
 
+//差分検出方法①...しっかり検出できるが、少しでもずれると検出できない(カメラ向きでない)
 void absdiff1(const cv::Mat &src, const cv::Mat &dst)
 {
   // 読み込みの確認
@@ -117,7 +116,6 @@ void absdiff1(const cv::Mat &src, const cv::Mat &dst)
 
   // ブラーでノイズ除去
   cv::medianBlur(diffImage, diffImage, 3);
-
   
   // 差分画像を2値化
   cv::threshold(diffImage, diffImage, 30, 255, cv::THRESH_BINARY);
@@ -125,7 +123,6 @@ void absdiff1(const cv::Mat &src, const cv::Mat &dst)
   // 差分のある画素に赤色を付ける
   cv::Mat resultImage = src.clone();
   resultImage.setTo(cv::Scalar(0, 0, 255), diffImage);
-
   cv::Scalar lowerRed = cv::Scalar(0, 0, 255);
   cv::Scalar upperRed = cv::Scalar(0, 0, 255);
 
@@ -136,8 +133,10 @@ void absdiff1(const cv::Mat &src, const cv::Mat &dst)
   cv::Mat redImage;
   resultImage.copyTo(redImage, redMask);
 
+  cv::imwrite("redImage.png", redImage);
+
   // 画像の暗くする度合いを設定
-  double alpha = 0.0; // 0.0から1.0の範囲で設定（1.0で元の明るさ、0.0で完全に暗くなる）
+  double alpha = 0.3; // 0.0から1.0の範囲で設定（1.0で元の明るさ、0.0で完全に暗くなる）
 
   // 画像を暗くする
   cv::Mat darkenedImage = src * alpha;
@@ -145,15 +144,13 @@ void absdiff1(const cv::Mat &src, const cv::Mat &dst)
   // redMaskと暗くした画像を重ねる
   cv::Mat overlaidImage;
   cv::addWeighted(redImage, 1.0, darkenedImage, 1.0, 0.0, overlaidImage);
-
   cv::resize(overlaidImage, overlaidImage, cv::Size(), 500.0/overlaidImage.cols ,500.0/overlaidImage.cols);
-  
-  cv::imshow("Resuit", overlaidImage);
+  //cv::imshow("Resuit", overlaidImage);
   cv::waitKey(0);
-
   cv::imwrite("Result.png", overlaidImage);
 }
 
+//差分検出方法②...変形に対して強いが、検出できない間違いも多い(カメラ向き)
 void absdiff2(const cv::Mat &src, const cv::Mat &dst)
 {
   // 読み込みの確認
@@ -162,17 +159,13 @@ void absdiff2(const cv::Mat &src, const cv::Mat &dst)
     std::cout << "読み込みに失敗しました" << std::endl;
     return;
   }
-
   // 画像のリサイズ
   cv::resize(dst, dst, src.size());
-
   cv::Mat WarpedSrcMat, LmatFloat, Rsrc;
   WarpedSrcMat.convertTo(LmatFloat, CV_16SC3);
   Rsrc.convertTo(Rsrc, CV_16SC3);
-
   std::vector<cv::Mat> planes1;
   std::vector<cv::Mat> planes2;
-
   cv::Mat diff0;
   cv::Mat diff1;
   cv::Mat diff2;
@@ -190,11 +183,10 @@ void absdiff2(const cv::Mat &src, const cv::Mat &dst)
   cv::medianBlur(diff0, diff0, 3);
   cv::medianBlur(diff1, diff1, 3);
   cv::medianBlur(diff2, diff2, 3);
-
   cv::Mat wiseMat;
   cv::bitwise_or(diff0, diff1, wiseMat);
   cv::bitwise_or(wiseMat, diff2, wiseMat);
-  
+
   //オープニング処理でノイズ緩和
   cv::Mat openingMat;
   cv::morphologyEx(wiseMat, openingMat, 0, openingMat);
@@ -210,16 +202,33 @@ void absdiff2(const cv::Mat &src, const cv::Mat &dst)
   cv::Mat dilationColorMat;
   cv::convertScaleAbs(dilationMat, dilationScaleMat);
   cv::cvtColor(dilationScaleMat, dilationColorMat, cv::COLOR_GRAY2RGB);
- 
-  // 元画像 3:差分画像 7 で合成
-  cv:: Mat Result;
-  cv::addWeighted(src, 0.3, dilationColorMat, 0.7, 0, Result);
-  //cv::addWeighted(, 0.3, dilationColorMat, 0.7, 0, RaddMat);
 
-  resize(Result, Result, cv::Size(), 500.0/Result.cols , Result.cols);
+ // 差分のある画素に赤色を付ける
+  cv::Mat resultImage = src.clone();
+  resultImage.setTo(cv::Scalar(0, 0, 255), dilationColorMat);
+  cv::Scalar lowerRed = cv::Scalar(0, 0, 255);
+  cv::Scalar upperRed = cv::Scalar(0, 0, 255);
 
-  cv::imshow("result", Result);
-  cv::waitKey(0);
+  // 画像から赤色部分を抽出
+  cv::Mat redMask;
+  cv::inRange(resultImage, lowerRed, upperRed, redMask);
+  cv::Mat redImage;
+  resultImage.copyTo(redImage, redMask);
+  cv::imwrite("redImage.png", redImage);
+
+  // 画像の暗くする度合いを設定
+  double alpha = 0.3; // 0.0から1.0の範囲で設定（1.0で元の明るさ、0.0で完全に暗くなる）
+
+  // 画像を暗くする
+  cv::Mat darkenedImage = src * alpha;
+
+  // redMaskと暗くした画像を重ねる
+  cv::Mat overlaidImage;
+  cv::addWeighted(redImage, 1.0, darkenedImage, 1.0, 0.0, overlaidImage);
+  cv::resize(overlaidImage, overlaidImage, cv::Size(), 500.0/overlaidImage.cols ,500.0/overlaidImage.cols); 
+  cv::imshow("Resuit", overlaidImage);
+  //cv::waitKey(0);
+  cv::imwrite("Result.png", overlaidImage);
 }
 
 int main(int argc, char **argv)
@@ -227,21 +236,24 @@ int main(int argc, char **argv)
   // 元の画像と間違いが含まれた画像の読み込み
   cv::Mat image1 = cv::imread(argv[1]);
   cv::Mat image2 = cv::imread(argv[2]);
-
   
   //特徴点マッチング
   feature_matching(image1, image2, image1);
   
+  //差分検出＆補正をコマンドライン引数から選択
   int num = atoi(argv[3]);
- 
+
   if(num == 1){
-    absdiff1(image1, image2); 
+    absdiff1(image1, image2); //差分検出方法①
   }
   else {
-    absdiff2(image1, image2); 
+    absdiff2(image1, image2); //差分検出方法②
   }
 
-  
+  //結果画像のフルパスをグローバル変数に格納
+  std::string result_path1 = "/home/user/sof/software3/sof_cv/build/redImage.png";
+  std::string result_path2 = "/home/user/sof/software3/sof_cv/build/Result.png";
 
   return 0;
 }
+//実行例 : ./sof test1.pnh test2.png 1
